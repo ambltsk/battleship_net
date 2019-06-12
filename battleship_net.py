@@ -12,14 +12,22 @@ from lib.blocks import *
 from lib.ships import *
 
 class Game:
-
+    """
+    Основной класс игры. Содержит интерфейс и логику игры
+    """
     def __init__(self):
+        """
+        Инициализация игры, настройка основного окна программы
+        """
+        self.run = True
         self.root = Tk()
         self.root.title("Морской бой по сети")
         self.root.resizable(0,0)
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         self.var = Var()
         self.ship_select = 0
-        self.game_status = "none" #set, ready, ready10, ready01, run, finish
+        self.game_status = "none" #set, ready, run, finish
+        self.enemy_status = "none" #join, ready, wite
         self.step = "pause" 
         #Переменные подключения
         self.sock = None #Сокет
@@ -31,32 +39,53 @@ class Game:
         
         self.interface()
 
+    def on_close(self):
+        """
+        При закрытии окна закрывает сокеты
+        """
+        if self.sock:
+            self.sock.close()
+        self.run = False
+        self.root.destroy()
+
     def communication(self):
+        """
+        Функция поток получения сообщений от клиента или сервера
+        """
         while True:
             if self.server:
                 self.msg = self.conn.recv(1024)
             else:
                 self.msg = self.sock.recv(1024)
 
+    def send_msg(self, msg):
+        if self.server:
+            self.conn.send(msg)
+        else:
+            self.sock.send(msg)
+
     def mainloop(self):
-        while 1:
+        """
+        Игровой цикл игры
+        """
+        while self.run:
             if self.msg:
                 if self.msg == "ready":
-                    if self.game_status == "ready":
-                        self.game_status = "ready01"
+                    if self.game_status == "set":
+                        self.enemy_status = "ready"
                         self.lbl_info["text"] = "Противник готов"
-                    elif self.game_status == "ready10":
+                    elif self.game_status == "ready":
                         self.game_status = "run"
                         self.lbl_info["text"] = "Игра началась..."
                         if self.server:
                             if randint(0, 10) % 2 == 0:
                                 self.step = "me"
                                 self.lbl_info["text"] = "Вы ходите превым"
-                                self.conn.send("first me") #Начинает сервер
+                                self.send_msg("first me") #Начинает сервер
                             else:
                                 self.step = "enemy"
                                 self.lbl_info["text"] = "Первым ходит противник"
-                                self.conn.send("first you") #Начинает клиент
+                                self.send_msg("first you") #Начинает клиент
                 elif "first" in self.msg:
                     if "you" in self.msg:
                         self.step = "me"
@@ -64,11 +93,16 @@ class Game:
                     else:
                         self.step = "enemy"
                         self.lbl_info["text"] = "Первым ходит противник"
+                elif "shoot" in self.msg:
+                    self.shoot_proccess(self.msg)
                 print self.msg
                 self.msg = None
             self.root.update()
 
     def interface(self):
+        """
+        Настройка интерфейса окна
+        """
         self.frame_buttons = Frame(self.root, bg='yellow', bd=5)
         self.btn_create_game = Button(self.frame_buttons, text="Создать игру", \
                 command=self.create_game)
@@ -90,14 +124,14 @@ class Game:
         self.canvas.bind("<Motion>", self.mouse_move)
         self.lbl_info = Label(text="Создайте или подключитесь к игре если она уже создана")
         self.lbl_info.pack(side="bottom", fill="x")
-        self.draw_see()
+        self.set_see()
         self.canvas.create_text(5, self.var.ship_mini_my_top, \
             text = "Мой флот", anchor="nw")
         self.canvas.create_text(5, self.var.ship_mini_enemy_top, \
             text = "Вражеский флот", anchor="nw")
         self.set_ship()
 
-    def draw_see(self):
+    def set_see(self):
         self.my_see = See(self.canvas).index
         self.enemy_see = See(self.canvas, False).index
         self.my_blocks = []
@@ -105,6 +139,7 @@ class Game:
             for c in range(10):
                 block = Block(self.canvas, r, c)
                 self.my_blocks.append(block.index)
+        print self.my_blocks
         self.enemy_blocks = []
         for r in range(10):
             for c in range(10):
@@ -166,9 +201,7 @@ class Game:
                     ship.set_position(x, y)
 
     def enemy_click(self, event):
-        if self.game_status != "run":
-            return
-        if self.step != "me":
+        if self.game_status != "run" or self.step != "me":
             return
         x = event.x - (self.var.lr_span + self.var.see_field_border + \
                 self.var.see_field_width + self.var.center_span)
@@ -176,10 +209,8 @@ class Game:
         x = x // self.var.see_cell_width
         y = y // self.var.see_cell_height
         mes = "shoot " + str(x) + " " + str(y)
-        if self.server:
-            self.conn.send(mes)
-        else:
-            self.sock.send(mes)
+        self.send_msg(mes)
+
 
     def create_game(self):
         if self.btn_create_game["relief"] == "sunken":
@@ -207,6 +238,7 @@ class Game:
         self.set_game()
 
     def set_game(self):
+        self.enemy_status = "join"
         self.lbl_info["text"] = "Расставтье свой флот"        
         self.btn_create_game["relief"] = "sunken"
         self.btn_join_game["relief"] = "sunken"
@@ -217,17 +249,48 @@ class Game:
         if self.btn_ready["relief"] == "sunken":
             return
         self.btn_ready["relief"] = "sunken"
-        if self.server:
-            self.conn.send('ready')
-        else:
-            self.sock.send('ready')
-        if self.game_status == 'ready':
-            self.game_status = 'ready10'
+        self.send_msg('ready')
+        if self.enemy_status == 'join':
+            self.game_status = "ready"
             self.lbl_info["text"] = "Ждем готовности противника"
-        elif self.game_status == 'ready01':
+        elif self.enemy_status == 'ready':
             self.game_status = 'run' 
             self.lbl_info["text"] = "Игра началась..."
-        
+            if self.server:
+                if randint(0, 10) % 2 == 0:
+                    self.step = "me"
+                    self.lbl_info["text"] = "Вы ходите превым"
+                    self.send_msg("first me") #Начинает сервер
+                else:
+                    self.step = "enemy"
+                    self.lbl_info["text"] = "Первым ходит противник"
+                    self.send_msg("first you") #Начинает клиент
+
+    def shoot_proccess(self, msg):
+        """
+        Обработчик выстрелов 
+        """
+        parts = msg.split(' ')
+        if len(parts) < 3:
+            return
+        x = int(parts[1])
+        y = int(parts[2])
+        for ship in self.my_ships:
+            hit, number, block, kill = ship.shoot(x, y)
+            if hit:
+                break
+        if hit:
+            if kill:
+                self.send_msg('kill ' + str(number))
+                print "kill ", number
+            else:
+                self.send_msg('damage')
+                print "damage ", number, ":", block
+        else:
+            self.send_msg('miss')
+            index = y * 10 + x
+            self.canvas.itemconfig(self.my_blocks[index], fill=self.var.see_miss)
+            print "miss"
 
 if __name__ == "__main__":
     g = Game()

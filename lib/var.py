@@ -25,6 +25,7 @@ class Var:
         self.see_color = 'SteelBlue1'
         self.see_outline = 'Blue'
         self.see_active_fill = 'SteelBlue3'
+        self.see_miss = 'light cyan'
         self.ship_color = "olive drab"
         self.ship_damage = "yellow"
         self.ship_kill = "red"

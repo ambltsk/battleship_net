@@ -190,9 +190,10 @@ class Ship:
                 num = y - y1
             self.block_status[num] = "damage"
             print "shoots number = ", self.number, " block = ", num
-            return True, num, self.redraw()
+            return True, self.number, num, not self.redraw()
+                #Попали , № корабля, № блока, убит
         else:
-            return False, None, None
+            return False, None, None, None
 
     def redraw(self):
         live = False
