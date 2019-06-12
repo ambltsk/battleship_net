@@ -31,3 +31,14 @@ class Var:
         self.ship_kill = "red"
         self.ship_outline = "gold3"
         self.ship_select = "green"
+        
+        self.label = ['А','Б','В','Г','Д','Е','Ж','З','И','К']
+
+class Coord:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def set_coord(self, crd):
+        self.x = crd[0]
+        self.y = crd[1]

@@ -189,11 +189,16 @@ class Ship:
             else:
                 num = y - y1
             self.block_status[num] = "damage"
-            print "shoots number = ", self.number, " block = ", num
-            return True, self.number, num, not self.redraw()
-                #Попали , № корабля, № блока, убит
+            self.live = "damage"
+            answer = {"number":self.number, "block": num, "kill": (not self.redraw())}
+            if answer["kill"]:
+                answer["x"] = self.x
+                answer["y"] = self.y
+                answer["direction"] = self.direction
+                self.live = "kill"
+            return True, answer
         else:
-            return False, None, None, None
+            return False, None
 
     def redraw(self):
         live = False
@@ -217,3 +222,10 @@ class Ship:
                 if len(self.see_blocks) > 0:
                     self.c.itemconfig(self.see_blocks[i], fill=color)
         return live
+
+    def kill_mini(self):
+        self.live = "kill"
+        for i in range(len(self.mini_blocks)):
+            self.block_status[i] = "kill"
+            self.c.itemconfig(self.mini_blocks[i], fill=self.var.ship_kill)
+            
