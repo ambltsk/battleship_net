@@ -75,10 +75,10 @@ class Game:
             if self.msg:
                 print "net:>>> ", self.msg
                 if self.msg == "ready":
-                    if self.game_status == "set" or self.game_status == "ready":
+                    if self.game_status == "set" or self.game_status == "wite":
                         self.enemy_status = "ready"
                         self.lbl_info["text"] = "Противник готов"
-                    elif self.game_status == "wite":
+                    elif self.game_status == "ready":
                         self.game_status = "run"
                         self.lbl_info["text"] = "Игра началась..."
                         if self.server:
@@ -217,7 +217,7 @@ class Game:
             self.my_ships[self.ship_select].fix()
             self.ship_select += 1
             if self.ship_select > 9:
-                self.game_status = "ready"
+                self.game_status = "wite"
                 self.btn_ready["relief"] = "raised"
                 self.lbl_info["text"] = "Жмите <Готов>"
             else:
@@ -324,9 +324,9 @@ class Game:
         if self.btn_ready["relief"] == "sunken":
             return
         self.btn_ready["relief"] = "sunken"
-        self.send_msg('ready')
+        self.game_status = "ready"
+        self.send_msg("ready")
         if self.enemy_status == 'join':
-            self.game_status = "wite"
             self.lbl_info["text"] = "Ждем готовности противника"
         elif self.enemy_status == 'ready':
             self.game_status = 'run' 
@@ -356,6 +356,7 @@ class Game:
                 break
         if hit:
             if info["kill"]:
+                self.lbl_info["text"] = "Наш корабль потоплен"
                 answer = ['kill',]
                 answer.append(str(info["number"]))
                 answer.append(str(info["x"]))
@@ -364,9 +365,11 @@ class Game:
                 self.send_msg(' '.join(answer))
                 print "me kill ", info["number"]
             else:
+                self.lbl_info["text"] = "По нам попали"
                 self.send_msg('demage')
                 print "me demage ", info["number"], ":", info["block"]
         else:
+            self.lbl_info["text"] = "Мазила!!! Наш ход..."
             self.send_msg('miss')
             index = y * 10 + x
             self.canvas.itemconfig(self.my_blocks[index], fill=self.var.see_miss)
